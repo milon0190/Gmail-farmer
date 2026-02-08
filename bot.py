@@ -5,10 +5,13 @@ import re
 import secrets
 import string
 import os
+import threading
+import http.server
+import socketserver
 from typing import Dict, List, Optional, Tuple, Any
 from dotenv import load_dotenv
 
-# --- IMPORTS ---
+# --- IMPORTS FIXED FOR v20+ ---
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, 
     KeyboardButton, ReplyKeyboardMarkup
@@ -865,9 +868,29 @@ class GmailBuyBot:
     async def cancel_operation(self, u, c): await self.show_main_menu(u,c); return ConversationHandler.END
     async def admin_edit_setting_key(self, u, c): pass 
 
+# --- KEEP ALIVE SERVER FOR RENDER (FIXES TIMED OUT) ---
+class KeepAliveHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass 
+
+def start_keep_alive_server():
+    PORT = 8080
+    try:
+        with socketserver.TCPServer(("", PORT), KeepAliveHandler) as httpd:
+            logging.info(f"Keep-alive server started at port {PORT}")
+            httpd.serve_forever()
+    except OSError as e:
+        logging.error(f"Keep-alive server failed: {e}")
+
+# Run keep-alive server in background thread
+threading.Thread(target=start_keep_alive_server, daemon=True).start()
+
+# --- MAIN ENTRY POINT ---
 if __name__ == '__main__':
-    # Validate Config before starting
     if Config.validate():
-        bot = GmailBuyBot()
-        logger.info("Bot started successfully with Env Configuration.")
-        bot.application.run_polling()
+        try:
+            bot = GmailBuyBot()
+            logger.info("Bot started successfully with Env Configuration.")
+            bot.application.run_polling()
+        except Exception as e:
+            logger.critical(f"Bot crashed: {e}")
