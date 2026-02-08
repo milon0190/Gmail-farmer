@@ -8,10 +8,13 @@ import os
 from typing import Dict, List, Optional, Tuple, Any
 from dotenv import load_dotenv
 
+# --- IMPORTS FIXED FOR v20+ ---
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, 
-    KeyboardButton, ReplyKeyboardMarkup, ParseMode
+    KeyboardButton, ReplyKeyboardMarkup
 )
+# ParseMode moved to constants in v20
+from telegram.constants import ParseMode 
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, 
     MessageHandler, filters, ContextTypes, ConversationHandler
