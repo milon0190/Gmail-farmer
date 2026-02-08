@@ -8,13 +8,12 @@ import os
 from typing import Dict, List, Optional, Tuple, Any
 from dotenv import load_dotenv
 
-# --- IMPORTS FIXED FOR v20+ ---
+# --- IMPORTS ---
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, 
     KeyboardButton, ReplyKeyboardMarkup
 )
-# ParseMode moved to constants in v20
-from telegram.constants import ParseMode 
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, 
     MessageHandler, filters, ContextTypes, ConversationHandler
@@ -26,10 +25,8 @@ load_dotenv()
 class Config:
     """Centralized Configuration Management using Environment Variables."""
     
-    # Bot Credentials
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     
-    # Admin Settings (Parse comma-separated IDs)
     ADMIN_IDS = []
     if os.getenv("ADMIN_IDS"):
         try:
@@ -37,15 +34,11 @@ class Config:
         except ValueError:
             logging.warning("Invalid ADMIN_IDS format in .env file")
 
-    # Database Settings
     DB_NAME = os.getenv("DB_NAME", "gmail_bot.db")
-    
-    # System Settings
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
     @classmethod
     def validate(cls):
-        """Validates critical configuration."""
         if not cls.BOT_TOKEN:
             raise ValueError("❌ CRITICAL: BOT_TOKEN is missing in .env file!")
         return True
@@ -65,7 +58,6 @@ logger = logging.getLogger(__name__)
     ENTER_GMAIL_PRICE, ENTER_WITHDRAW_ID, SELECT_WITHDRAW_ACTION,
     ENTER_BROADCAST_MESSAGE, ADMIN_ADD_BALANCE_UID, ADMIN_ADD_BALANCE_AMT,
     ENTER_REJECT_REASON, ENTER_SUPPORT_MSG, ADMIN_REPLY_SUPPORT, ADMIN_BAN_UID,
-    # V4/V5 States
     ADMIN_SEARCH_USER, ADMIN_USER_ACTION_SELECT, 
     ADMIN_EDIT_SETTING_KEY, ADMIN_EDIT_SETTING_VAL,
     ADMIN_CREATE_PROMO_CODE, ADMIN_PROMO_AMOUNT, ADMIN_PROMO_LIMIT,
@@ -73,7 +65,6 @@ logger = logging.getLogger(__name__)
 ) = range(28)
 
 # --- Helper Utilities ---
-
 def escape_html(text: str) -> str:
     if not text: return ""
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -82,7 +73,7 @@ class TextManager:
     @staticmethod
     def welcome():
         return (
-            "💎 <b>Welcome to Gmail Buy Bot ULTIMATE V5 (Env)!</b> 💎\n\n"
+            "💎 <b>Welcome to Gmail Buy Bot ULTIMATE V5!</b> 💎\n\n"
             "✨ <i>The #1 Premium Platform with Secure Config.</i>\n\n"
             "🚀 <b>Start Earning Today!</b>"
         )
@@ -129,7 +120,6 @@ class KeyboardManager:
 # --- Database Manager V5 ---
 class Database:
     def __init__(self, db_name: str = None):
-        # Use Config DB name or default
         self.db_path = db_name or Config.DB_NAME
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row 
@@ -230,12 +220,22 @@ class Database:
             VALUES ('min_withdraw', '100.0'), ('gmail_price', '5.0'), ('referral_commission', '5.0'), ('daily_bonus_amount', '2.0')
         ''')
 
+        # Seed Payment Methods
         self.add_payment_method("bKash")
         self.add_payment_method("Nagad")
         self.add_payment_method("Rocket")
         self.add_payment_method("Recharge/Skrill")
 
         self.conn.commit()
+
+    # --- FIXED: Added Missing Method ---
+    def add_payment_method(self, name: str):
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute('INSERT INTO payment_methods (name) VALUES (?)', (name,))
+            self.conn.commit()
+        except sqlite3.IntegrityError:
+            pass # Method already exists
 
     def upgrade_database(self):
         cursor = self.conn.cursor()
@@ -280,7 +280,6 @@ class Database:
         cursor = self.conn.cursor()
         try:
             ref_code = self.generate_referral_code()
-            # Check if user is in ENV Admin list
             is_admin = user_id in Config.ADMIN_IDS
             
             cursor.execute('INSERT INTO users (user_id, username, first_name, referral_code, referred_by, is_admin) VALUES (?, ?, ?, ?, ?, ?)', 
